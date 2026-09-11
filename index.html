@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tubes Tahap 1: NPC Pathfinding & Live Comparison</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background: #a0c5f6; 
+            margin: 0; 
+            padding: 20px; 
+            color: #1e293b; 
+        }
+        h1 { margin-top: 0; margin-bottom: 4px; font-size: 22px; }
+        p.desc { margin-top: 0; color: #64748b; margin-bottom: 15px; font-size: 13px; }
+
+        /* Layout Utama dengan Panel Menempel di Kanan (Sticky) */
+        .container { 
+            display: flex; 
+            flex-direction: row; 
+            gap: 20px; 
+            align-items: flex-start; 
+            width: 100%;
+        }
+
+        /* Area Canvas (Peta Lebih Besar) */
+        .canvas-card {
+            background: #fff;
+            padding: 12px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+        }
+        canvas { 
+            background: #e2e8f0; 
+            display: block; 
+            border-radius: 6px; 
+            cursor: crosshair; 
+        }
+
+        /* Panel Kontrol & Eksperimen Menempel di Kanan Browser */
+        .controls { 
+            position: sticky;
+            top: 20px;
+            background: #fff; 
+            padding: 16px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); 
+            width: 360px; 
+            flex-shrink: 0;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        .controls h3 { margin-top: 0; font-size: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px; }
+        label { display: block; margin-top: 8px; font-size: 12px; font-weight: 600; color: #475569; }
+        select, button { width: 100%; padding: 7px 10px; margin-top: 3px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; }
+        
+        button { 
+            background: #2563eb; 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            font-weight: bold; 
+            margin-top: 10px; 
+            transition: background 0.2s;
+        }
+        button:hover { background: #1d4ed8; }
+        button.btn-secondary { background: #0d9488; }
+        button.btn-secondary:hover { background: #0f766e; }
+
+        .stat-box, .compare-box { 
+            background: #f8fafc; 
+            border: 1px solid #e2e8f0; 
+            padding: 8px 10px; 
+            border-radius: 6px; 
+            margin-top: 10px; 
+            font-size: 12px; 
+        }
+        .stat-box p { margin: 3px 0; }
+        .highlight { font-weight: bold; color: #2563eb; }
+        
+        .message { 
+            margin-top: 8px; 
+            padding: 6px 8px; 
+            border-radius: 6px; 
+            font-weight: bold; 
+            font-size: 11px;
+            display: none; 
+        }
+        .message.success { display: block; background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+
+        /* Tabel Live Compare */
+        table.live-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px; }
+        table.live-table th, table.live-table td { border: 1px solid #cbd5e1; padding: 4px; text-align: center; }
+        table.live-table th { background: #e2e8f0; color: #334155; }
+
+        .legend { margin-top: 12px; font-size: 11px; line-height: 1.5; border-top: 1px solid #f1f5f9; padding-top: 8px; }
+        .color-box { display: inline-block; width: 9px; height: 9px; margin-right: 4px; vertical-align: middle; border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+    <h1>Simulasi NPC Chase (UCS vs A*)</h1>
+    <p class="desc">Tubes Tahap 1 — Peta Diperbesar & Panel Kontrol Menempel di Kanan Browser.</p>
+
+    <div class="container">
+        <!-- Area Peta (Canvas Diperbesar: 44 Kolom x 28 Baris) -->
+        <div class="canvas-card">
+            <canvas id="gameCanvas" width="880" height="560"></canvas>
+        </div>
+
+        <!-- Panel Kontrol & Eksperimen Menempel di Kanan -->
+        <div class="controls">
+            <h3>Panel Eksperimen</h3>
+            <label>Algoritma Utama NPC:</label>
+            <select id="algoSelect" onchange="recalculate()">
+                <option value="astar_manhattan">A* (Heuristik Manhattan)</option>
+                <option value="astar_euclidean">A* (Heuristik Euclidean)</option>
+                <option value="ucs">Uniform Cost Search (h=0)</option>
+            </select>
+
+            <label>
+                <input type="checkbox" id="chaseToggle" checked onchange="toggleChase()">
+                Auto-Chase (NPC gerak tiap Player gerak)
+            </label>
+
+            <label>
+                <input type="checkbox" id="debugToggle" checked onchange="draw()">
+                Tampilkan Debug Overlay (Expanded Nodes)
+            </label>
+
+            <button onclick="randomizeMap()" class="btn-secondary">Acak Map & Reset Posisi</button>
+
+            <div id="statusMsg" class="message"></div>
+
+            <div class="stat-box">
+                <p>Path Cost Utama: <span id="valCost" class="highlight">-</span></p>
+                <p>Node Di-expand (Utama): <span id="valExpanded" class="highlight">-</span></p>
+            </div>
+
+            <!-- Tabel Live Comparison Semua Algoritma -->
+            <div class="compare-box">
+                <strong>Live Comparison (Semua Algoritma):</strong>
+                <table class="live-table">
+                    <thead>
+                        <tr>
+                            <th>Algoritma</th>
+                            <th>Expanded</th>
+                            <th>Cost</th>
+                            <th>Waktu (ms)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="liveTableBody">
+                        <!-- Diisi secara dinamis -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="legend">
+                <strong>Legenda:</strong><br>
+                <span class="color-box" style="background:#86efac;"></span> Rumput (Cost: 1)<br>
+                <span class="color-box" style="background:#93c5fd;"></span> Sungai (Cost: 5)<br>
+                <span class="color-box" style="background:#475569;"></span> Rumah/Pohon (Wall)<br>
+                <span class="color-box" style="background:rgba(239,68,68,0.4);"></span> Debug: Node di-expand
+            </div>
+        </div>
+    </div>
+
+<script>
+class PriorityQueue {
+    constructor() { this.items = []; }
+    enqueue(item, priority) {
+        this.items.push({ item, priority });
+        this.items.sort((a, b) => a.priority - b.priority);
+    }
+    dequeue() { return this.items.shift().item; }
+    isEmpty() { return this.items.length === 0; }
+}
+
+// Konfigurasi Peta Diperbesar: 44 Kolom x 28 Baris (Ukuran cell 20px -> 44*20 = 880, 28*20 = 560)
+const cols = 44, rows = 28, cellSize = 20;
+let grid = [], npc = { x: 1, y: 1 }, player = { x: 42, y: 26 };
+let isChasing = true, isGameOver = false, currentResult = null;
+
+const COST_GRASS = 1, COST_RIVER = 5;
+
+function randomizeMap() {
+    isGameOver = false;
+    for (let y = 0; y < rows; y++) {
+        grid[y] = [];
+        for (let x = 0; x < cols; x++) {
+            const r = Math.random();
+            if (r < 0.20) grid[y][x] = 'wall';
+            else if (r < 0.35) grid[y][x] = 'river';
+            else grid[y][x] = 'grass';
+        }
+    }
+    function getRandomEmpty() {
+        let cell;
+        do { cell = { x: Math.floor(Math.random() * cols), y: Math.floor(Math.random() * rows) }; } 
+        while (grid[cell.y][cell.x] === 'wall');
+        return cell;
+    }
+    npc = getRandomEmpty();
+    do { player = getRandomEmpty(); } while (npc.x === player.x && npc.y === player.y);
+    
+    document.getElementById('statusMsg').className = 'message';
+    recalculate();
+}
+
+function searchPath(start, goal, algoStr) {
+    const startT = performance.now();
+    const frontier = new PriorityQueue();
+    frontier.enqueue(start, 0);
+    
+    const cameFrom = new Map(), gScore = new Map(), closedSet = new Set();
+    const startKey = `${start.x},${start.y}`;
+    gScore.set(startKey, 0);
+    cameFrom.set(startKey, null);
+    let expanded = 0;
+
+    while (!frontier.isEmpty()) {
+        const current = frontier.dequeue();
+        const currKey = `${current.x},${current.y}`;
+        
+        if (current.x === goal.x && current.y === goal.y) {
+            let path = [], step = currKey;
+            while (step) {
+                const [x, y] = step.split(',').map(Number);
+                path.push({x, y});
+                step = cameFrom.get(step);
+            }
+            return { path: path.reverse(), closed: closedSet, cost: gScore.get(currKey), expanded, time: performance.now() - startT };
+        }
+
+        closedSet.add(currKey);
+        expanded++;
+
+        const moves = [{x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0}];
+        for (let m of moves) {
+            const next = { x: current.x + m.x, y: current.y + m.y };
+            if (next.x < 0 || next.x >= cols || next.y < 0 || next.y >= rows || grid[next.y][next.x] === 'wall') continue;
+
+            const stepCost = grid[next.y][next.x] === 'river' ? COST_RIVER : COST_GRASS;
+            const new_g = gScore.get(currKey) + stepCost;
+            const nextKey = `${next.x},${next.y}`;
+
+            if (!gScore.has(nextKey) || new_g < gScore.get(nextKey)) {
+                gScore.set(nextKey, new_g);
+                cameFrom.set(nextKey, currKey);
+                
+                let h = 0;
+                if (algoStr === 'astar_manhattan') h = Math.abs(next.x - goal.x) + Math.abs(next.y - goal.y);
+                else if (algoStr === 'astar_euclidean') h = Math.hypot(next.x - goal.x, next.y - goal.y);
+                
+                frontier.enqueue(next, new_g + h);
+            }
+        }
+    }
+    return { path: [], closed: closedSet, cost: '-', expanded, time: performance.now() - startT };
+}
+
+function recalculate() {
+    if (isGameOver) return;
+    const selectedAlgo = document.getElementById('algoSelect').value;
+    
+    // 1. Hitung algoritma utama NPC
+    currentResult = searchPath(npc, player, selectedAlgo);
+    document.getElementById('valCost').innerText = currentResult.cost;
+    document.getElementById('valExpanded').innerText = currentResult.expanded;
+
+    // 2. Hitung live perbandingan untuk semua algoritma
+    const algosToCompare = [
+        { key: 'astar_manhattan', name: 'A* Manhattan' },
+        { key: 'astar_euclidean', name: 'A* Euclidean' },
+        { key: 'ucs', name: 'UCS (h=0)' }
+    ];
+
+    let tableHTML = '';
+    algosToCompare.forEach(algo => {
+        const res = searchPath(npc, player, algo.key);
+        const isSelected = algo.key === selectedAlgo ? 'style="background: #e0f2fe; font-weight: bold;"' : '';
+        tableHTML += `
+            <tr ${isSelected}>
+                <td>${algo.name}</td>
+                <td>${res.expanded}</td>
+                <td>${res.cost}</td>
+                <td>${res.time.toFixed(2)}</td>
+            </tr>
+        `;
+    });
+    document.getElementById('liveTableBody').innerHTML = tableHTML;
+
+    draw();
+}
+
+function movePlayerTo(x, y) {
+    if (isGameOver || x < 0 || x >= cols || y < 0 || y >= rows || grid[y][x] === 'wall' || (x === player.x && y === player.y)) return;
+    player.x = x; player.y = y;
+    
+    recalculate();
+    
+    if (isChasing && currentResult.path.length > 1) {
+        npc = currentResult.path[1];
+        recalculate();
+    }
+
+    if (npc.x === player.x && npc.y === player.y) {
+        isGameOver = true;
+        const msg = document.getElementById('statusMsg');
+        msg.textContent = "Tertangkap! Auto-reset map dalam 1.5 detik...";
+        msg.className = "message success";
+        setTimeout(randomizeMap, 1500);
+    }
+}
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    movePlayerTo(Math.floor((e.clientX - rect.left) / cellSize), Math.floor((e.clientY - rect.top) / cellSize));
+});
+
+window.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    if (['w', 'arrowup'].includes(key)) movePlayerTo(player.x, player.y - 1);
+    else if (['s', 'arrowdown'].includes(key)) movePlayerTo(player.x, player.y + 1);
+    else if (['a', 'arrowleft'].includes(key)) movePlayerTo(player.x - 1, player.y);
+    else if (['d', 'arrowright'].includes(key)) movePlayerTo(player.x + 1, player.y);
+});
+
+function toggleChase() {
+    isChasing = document.getElementById('chaseToggle').checked;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const showDebug = document.getElementById('debugToggle').checked;
+
+    for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+            ctx.fillStyle = grid[y][x] === 'wall' ? '#475569' : grid[y][x] === 'river' ? '#93c5fd' : '#86efac';
+            ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
+            ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+            ctx.strokeRect(x * cellSize, y * cellSize, cellSize, cellSize);
+        }
+    }
+
+    if (showDebug && currentResult) {
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+        for (let key of currentResult.closed) {
+            const [cx, cy] = key.split(',').map(Number);
+            ctx.fillRect(cx * cellSize, cy * cellSize, cellSize, cellSize);
+        }
+    }
+
+    if (currentResult && currentResult.path.length > 0) {
+        ctx.beginPath();
+        ctx.moveTo(currentResult.path[0].x * cellSize + cellSize/2, currentResult.path[0].y * cellSize + cellSize/2);
+        for (let i = 1; i < currentResult.path.length; i++) ctx.lineTo(currentResult.path[i].x * cellSize + cellSize/2, currentResult.path[i].y * cellSize + cellSize/2);
+        ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 3; ctx.stroke();
+    }
+
+    ctx.beginPath(); ctx.arc(npc.x * cellSize + cellSize/2, npc.y * cellSize + cellSize/2, cellSize/2 - 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#ef4444'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.beginPath(); ctx.arc(player.x * cellSize + cellSize/2, player.y * cellSize + cellSize/2, cellSize/2 - 2, 0, Math.PI * 2);
+    ctx.fillStyle = '#2563eb'; ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+}
+
+randomizeMap();
+</script>
+</body>
+</html>

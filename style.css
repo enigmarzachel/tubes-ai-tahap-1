@@ -1,0 +1,146 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f3f4f6;
+  color: #1f2937;
+}
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px;
+}
+h1 {
+  margin-bottom: 6px;
+}
+.intro {
+  margin-top: 0;
+  color: #4b5563;
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(600px, 1fr) 310px;
+  gap: 18px;
+  align-items: start;
+}
+.game-card, .panel, .notes {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #e5e7eb;
+  border-radius: 8px;
+}
+.hint {
+  margin-bottom: 0;
+  color: #4b5563;
+  font-size: 14px;
+}
+.control-group {
+  margin-bottom: 12px;
+}
+label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+select, button {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #9ca3af;
+  border-radius: 7px;
+  background: white;
+  font-size: 14px;
+}
+button {
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+button:hover {
+  background: #f3f4f6;
+}
+.secondary {
+  margin-top: 4px;
+}
+.button-row {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0 12px;
+}
+.checkbox input {
+  width: auto;
+}
+.legend, .stats, .history, .compare, .message {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+.legend h2, .stats h2, .history h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+.legend div {
+  margin: 7px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.swatch {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #6b7280;
+}
+.swatch.expanded { background: rgba(255, 215, 0, 0.75); }
+.swatch.frontier { background: rgba(70, 130, 255, 0.35); }
+.swatch.path { background: rgba(50, 205, 50, 0.65); }
+.swatch.npc { background: #ef4444; }
+.swatch.player { background: #8b5cf6; }
+.swatch.obstacle { background: #6b7280; }
+.swatch.river { background: #60a5fa; }
+.stats table, .history table, .compare table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.stats td, .history th, .history td, .compare th, .compare td {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 5px 4px;
+  text-align: left;
+}
+.history-box {
+  max-height: 190px;
+  overflow: auto;
+}
+.status-success {
+  font-weight: 700;
+}
+.status-error {
+  color: #b91c1c;
+  font-weight: 700;
+}
+.notes {
+  margin-top: 18px;
+}
+.notes p {
+  margin: 8px 0;
+}
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
