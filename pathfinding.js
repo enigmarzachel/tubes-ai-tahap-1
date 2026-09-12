@@ -83,36 +83,36 @@ function searchPath(grid, start, goal, options = {}) {
   const algorithm = options.algorithm || "ucs";
   const heuristic = options.heuristic || zeroHeuristic;
   const startTime = performance.now();
-  
+
   const gScore = new Map();
   const parent = new Map();
   const closed = new Set();
   const frontier = new PriorityQueue();
-  
+
   gScore.set(key(start), 0);
   const startH = heuristic(start, goal);
-  
+
   const startPriority = algorithm === "ucs" ? 0 : startH;
-  
+
   frontier.enqueue(
     start,
     startPriority,
     algorithm === "ucs" ? 0 : startH
   );
-  
+
   let expandedNodes = 0;
-  
+
   while (!frontier.isEmpty()) {
     const entry = frontier.dequeue();
     const current = entry.item;
     const currentKey = key(current);
-    
+
     if (closed.has(currentKey)) {
       continue;
     }
-    
+
     expandedNodes++;
-    
+
     if (sameCell(current, goal)) {
       const path = reconstructPath(parent, start, goal);
       return {
@@ -128,20 +128,20 @@ function searchPath(grid, start, goal, options = {}) {
         goal: { ...goal }
       };
     }
-    
+
     closed.add(currentKey);
-    
+
     for (const next of grid.getNeighbors(current)) {
       const nextKey = key(next);
       const newG = gScore.get(currentKey) + grid.getStepCost(next);
-      
+
       if (newG < (gScore.get(nextKey) ?? Infinity)) {
         gScore.set(nextKey, newG);
         parent.set(nextKey, currentKey);
-        
+
         const h = heuristic(next, goal);
         const priority = algorithm === "ucs" ? newG : newG + h;
-        
+
         frontier.enqueue(
           next,
           priority,
@@ -150,7 +150,7 @@ function searchPath(grid, start, goal, options = {}) {
       }
     }
   }
-  
+
   return {
     found: false,
     path: [],

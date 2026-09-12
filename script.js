@@ -50,7 +50,7 @@ const grid = {
   rows: ROWS,
   isInside(cell) {
     return cell.x >= 0 && cell.x < this.cols &&
-           cell.y >= 0 && cell.y < this.rows;
+      cell.y >= 0 && cell.y < this.rows;
   },
   getTerrain(cell) {
     return MAP[cell.y][cell.x];
@@ -124,7 +124,7 @@ function drawGrid() {
       ctx.fillRect(px, py, CELL, CELL);
       ctx.strokeStyle = "#9ca3af";
       ctx.strokeRect(px, py, CELL, CELL);
-      
+
       if (terrain === "#") {
         ctx.fillStyle = "#374151";
         ctx.font = "20px Arial";
@@ -259,24 +259,24 @@ function updateHistory() {
 function calculateChasePath(showMessage = true) {
   const algorithm = algorithmSelect.value;
   const heuristic = algorithm === "ucs" ? zeroHeuristic : getSelectedHeuristic();
-  
+
   const result = searchPath(grid, npcCell, playerCell, { algorithm, heuristic });
   currentResult = result;
-  
+
   totalSearches++;
   totalExpanded += result.expandedNodes;
   totalSearchTime += result.searchTimeMs;
-  
+
   searchHistory.push({
     number: totalSearches,
     goal: `(${playerCell.x}, ${playerCell.y})`,
     expanded: result.expandedNodes,
     cost: result.pathCost ?? "No path"
   });
-  
+
   updateStats(result);
   updateHistory();
-  
+
   if (showMessage) {
     if (result.found) {
       message.className = "message status-success";
@@ -318,7 +318,7 @@ function moveNpcOneStep() {
 
 function movePlayer(dx, dy) {
   if (!isChasing && sameCell(npcCell, playerCell)) return; // Jangan gerak jika tertangkap
-  
+
   const next = { x: playerCell.x + dx, y: playerCell.y + dy };
   if (!grid.isPassable(next)) {
     message.className = "message status-error";
@@ -329,12 +329,12 @@ function movePlayer(dx, dy) {
 
   playerCell = next;
   calculateChasePath(false);
-  
+
   if (isChasing) {
     moveNpcOneStep();
     if (!sameCell(npcCell, playerCell)) {
-        message.className = "message status-success";
-        message.textContent = `Player bergerak 1 blok -> NPC bergerak 1 blok.`;
+      message.className = "message status-success";
+      message.textContent = `Player bergerak 1 blok -> NPC bergerak 1 blok.`;
     }
   } else {
     message.className = "message status-success";
@@ -418,7 +418,7 @@ function compareAlgorithms() {
     });
     return { ...config, result };
   });
-  
+
   compareResult.innerHTML = `
     <h3>Comparison at current positions</h3>
     <table>
