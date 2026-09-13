@@ -1,4 +1,6 @@
+<!-- terhubung -->
 <!DOCTYPE html>
+<!-- NPC Pathfinding Simulation with asset rendering (grass, water, trees with 2-layer rendering) -->
 <html lang="id">
 
 <head>
@@ -42,6 +44,7 @@
 
         /* Area Canvas (Peta Lebih Besar) */
         .canvas-card {
+            /* width: 2004; */
             background: #fff;
             padding: 12px;
             border-radius: 10px;
@@ -195,13 +198,12 @@
 
 <body>
 
-    <h1>Simulasi NPC Chase (UCS vs A*)</h1>
-    <p class="desc">Tubes Tahap 1 — Peta Diperbesar & Panel Kontrol Menempel di Kanan Browser.</p>
+    <h1>Simulasi UCS vs A*</h1>
 
     <div class="container">
         <!-- Area Peta (Canvas Diperbesar: 44 Kolom x 28 Baris) -->
         <div class="canvas-card">
-            <canvas id="gameCanvas" width="880" height="560"></canvas>
+            <canvas id="gameCanvas" width="1080" height="750"></canvas>
         </div>
 
         <!-- Panel Kontrol & Eksperimen Menempel di Kanan -->
@@ -253,10 +255,11 @@
 
             <div class="legend">
                 <strong>Legenda:</strong><br>
-                <span class="color-box" style="background:#86efac;"></span> Rumput (Cost: 1)<br>
-                <span class="color-box" style="background:#93c5fd;"></span> Sungai (Cost: 5)<br>
-                <span class="color-box" style="background:#475569;"></span> Rumah/Pohon (Wall)<br>
-                <span class="color-box" style="background:rgba(239,68,68,0.4);"></span> Debug: Node di-expand
+                <img src="grass2.png" class="legend legend-grass"> Rumput (Cost: 1)<br>
+                <img src="water.png" class="legend legend-water"> Sungai (Cost: 5)<br>
+                <img src="tree.png" class="legend legend-tree"> Rumah/Pohon (Wall)<br>
+                <span style="background:rgba(239,68,68,0.4);" class="color-box" width="16px" height="200px"></span>
+                Debug: Node di-expand
             </div>
         </div>
     </div>
@@ -273,8 +276,8 @@
         }
 
         // Konfigurasi Peta Diperbesar: 44 Kolom x 28 Baris (Ukuran cell 20px -> 44*20 = 880, 28*20 = 560)
-        const cols = 44, rows = 28, cellSize = 20;
-        let grid = [], npc = { x: 1, y: 1 }, player = { x: 42, y: 26 };
+        const cols = 36, rows = 25, cellSize = 30;
+        let grid = [], npc = { x: 1, y: 1 }, player = { x: 25, y: 12 };
         let isChasing = true, isGameOver = false, currentResult = null;
 
         const COST_GRASS = 1, COST_RIVER = 5;
@@ -283,12 +286,14 @@
         const IMAGES = {};
         (function preloadImages() {
             const assets = {
+                player: 'child.png',
+                npc: 'cyclops.png',
                 grass1: 'grass.png',
                 grass2: 'grass2.png',
                 grass3: 'grass3.png',
-                tree1:  'tree.png',
-                tree2:  'tree2.png',
-                water:  'water.png'
+                tree1: 'tree.png',
+                tree2: 'tree2.png',
+                water: 'water.png'
             };
             for (const [key, src] of Object.entries(assets)) {
                 const img = new Image();
@@ -298,7 +303,7 @@
         })();
 
         const GRASS_VARIANTS = ['grass1', 'grass2', 'grass3'];
-        const TREE_VARIANTS  = ['tree1', 'tree2'];
+        const TREE_VARIANTS = ['tree1', 'tree2'];
         // Untuk layer bawah pohon, pilih grass acak juga
         function randomGrass() { return GRASS_VARIANTS[Math.floor(Math.random() * GRASS_VARIANTS.length)]; }
 
@@ -521,11 +526,17 @@
                 ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 3; ctx.stroke();
             }
 
-            ctx.beginPath(); ctx.arc(npc.x * cellSize + cellSize / 2, npc.y * cellSize + cellSize / 2, cellSize / 2 - 2, 0, Math.PI * 2);
-            ctx.fillStyle = '#ef4444'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+            // Gambar NPC menggunakan sprite cyclops, fallback ke lingkaran merah
+            if (!drawImg('npc', npc.x * cellSize, npc.y * cellSize)) {
+                ctx.beginPath(); ctx.arc(npc.x * cellSize + cellSize / 2, npc.y * cellSize + cellSize / 2, cellSize / 2 - 2, 0, Math.PI * 2);
+                ctx.fillStyle = '#ef4444'; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+            }
 
-            ctx.beginPath(); ctx.arc(player.x * cellSize + cellSize / 2, player.y * cellSize + cellSize / 2, cellSize / 2 - 2, 0, Math.PI * 2);
-            ctx.fillStyle = '#2563eb'; ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+            // Gambar Player menggunakan sprite child, fallback ke lingkaran biru
+            if (!drawImg('player', player.x * cellSize, player.y * cellSize)) {
+                ctx.beginPath(); ctx.arc(player.x * cellSize + cellSize / 2, player.y * cellSize + cellSize / 2, cellSize / 2 - 2, 0, Math.PI * 2);
+                ctx.fillStyle = '#2563eb'; ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+            }
         }
 
         randomizeMap();

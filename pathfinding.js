@@ -1,8 +1,12 @@
 // ================================================================
 // pathfinding.js
+// Implements a simple priority queue and UCS/A* pathfinding algorithms.
+// ------------------------------------------------
+// pathfinding.js
 // Priority Queue sederhana + UCS + A* + heuristic + reconstruction
 // ================================================================
 
+// Simple priority queue used by the search algorithms.
 class PriorityQueue {
   constructor() {
     this.items = [];
@@ -36,30 +40,37 @@ class PriorityQueue {
   }
 }
 
+// Zero heuristic for Uniform Cost Search (UCS).
 function zeroHeuristic(current, goal) {
   return 0;
 }
+// Manhattan distance heuristic for grid movement (A*).
 function manhattanHeuristic(current, goal) {
   return Math.abs(current.x - goal.x) + Math.abs(current.y - goal.y);
 }
+// Euclidean distance heuristic for A* (continuous space).
 function euclideanHeuristic(current, goal) {
   const dx = current.x - goal.x;
   const dy = current.y - goal.y;
   return Math.sqrt(dx * dx + dy * dy);
 }
+// Retrieve the appropriate heuristic function by name.
 function getHeuristic(name) {
   if (name === "manhattan") return manhattanHeuristic;
   if (name === "euclidean") return euclideanHeuristic;
   return zeroHeuristic;
 }
 
+// Convert a cell coordinate to a unique string key.
 function key(cell) {
   return `${cell.x},${cell.y}`;
 }
+// Check if two cells have identical coordinates.
 function sameCell(a, b) {
   return a.x === b.x && a.y === b.y;
 }
 
+// Reconstruct the path from goal to start using the parent map.
 function reconstructPath(parent, start, goal) {
   const path = [];
   let currentKey = key(goal);
@@ -79,6 +90,7 @@ function reconstructPath(parent, start, goal) {
   return path.reverse();
 }
 
+// Main pathfinding function implementing UCS or A* based on options.
 function searchPath(grid, start, goal, options = {}) {
   const algorithm = options.algorithm || "ucs";
   const heuristic = options.heuristic || zeroHeuristic;

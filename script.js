@@ -1,5 +1,8 @@
 // ================================================================
 // script.js
+// Handles game logic, rendering, user interaction, and pathfinding integration.
+// ------------------------------------------------
+// script.js
 // Moving Player + NPC chase + search ulang setiap Player bergerak
 // ================================================================
 
@@ -96,6 +99,7 @@ let totalExpanded = 0;
 let totalSearchTime = 0;
 let searchHistory = [];
 
+// Convert grid cell coordinates to pixel positions on the canvas.
 function cellToPixel(cell) {
   return {
     x: cell.x * CELL,
@@ -103,10 +107,12 @@ function cellToPixel(cell) {
   };
 }
 
+// Check if two cells have identical coordinates.
 function sameCell(a, b) {
   return a.x === b.x && a.y === b.y;
 }
 
+// Render the grid background, terrain colors, and optional labels.
 function drawGrid() {
   ctx.clearRect(0, 0, GRID_WIDTH, GRID_HEIGHT);
   for (let y = 0; y < ROWS; y++) {
@@ -142,6 +148,7 @@ function drawGrid() {
   }
 }
 
+// Draw debugging overlays: expanded nodes, frontier, and final path.
 function drawDebug() {
   if (!debugCheckbox.checked || !currentResult) return;
   for (const item of currentResult.expandedNodesList) {
@@ -159,6 +166,7 @@ function drawDebug() {
   }
 }
 
+// Render player and NPC entities, and connection line when chasing.
 function drawEntities() {
   const player = cellToPixel(playerCell);
   ctx.fillStyle = "#8b5cf6";
@@ -190,25 +198,30 @@ function drawEntities() {
   }
 }
 
+// Main draw routine: grid, debug info, and entities.
 function draw() {
   drawGrid();
   drawDebug();
   drawEntities();
 }
 
+// Retrieve the currently selected heuristic function.
 function getSelectedHeuristic() {
   return getHeuristic(heuristicSelect.value);
 }
 
+// Return the display name of the selected algorithm.
 function getAlgorithmName() {
   return algorithmSelect.value === "ucs" ? "UCS" : "A*";
 }
 
+// Return the name of the selected heuristic (or Zero for UCS).
 function getHeuristicName() {
   if (algorithmSelect.value === "ucs") return "Zero";
   return heuristicSelect.options[heuristicSelect.selectedIndex].text;
 }
 
+// Update the statistics panel with the latest search results.
 function updateStats(result) {
   if (!result) {
     statsContent.innerHTML = "Belum ada perhitungan.";
@@ -233,6 +246,7 @@ function updateStats(result) {
   `;
 }
 
+// Refresh the search history display with recent runs.
 function updateHistory() {
   if (searchHistory.length === 0) {
     historyContent.innerHTML = "Belum ada perhitungan.";
@@ -256,6 +270,7 @@ function updateHistory() {
   `;
 }
 
+// Compute the NPC chase path using the selected algorithm and update UI.
 function calculateChasePath(showMessage = true) {
   const algorithm = algorithmSelect.value;
   const heuristic = algorithm === "ucs" ? zeroHeuristic : getSelectedHeuristic();
@@ -290,6 +305,7 @@ function calculateChasePath(showMessage = true) {
   return result;
 }
 
+// Advance the NPC one step along the current path toward the player.
 function moveNpcOneStep() {
   if (!isChasing) return;
   if (!currentResult || !currentResult.found) return;
@@ -316,6 +332,7 @@ function moveNpcOneStep() {
   }
 }
 
+// Move the player by the given delta if the target cell is passable.
 function movePlayer(dx, dy) {
   if (!isChasing && sameCell(npcCell, playerCell)) return; // Jangan gerak jika tertangkap
 
@@ -343,10 +360,12 @@ function movePlayer(dx, dy) {
   draw();
 }
 
+// Trigger a single pathfinding run and display results.
 function runPathfinding() {
   calculateChasePath(true);
 }
 
+// Activate chase mode: NPC will follow the player on each move.
 function startChase() {
   isChasing = true;
   calculateChasePath(false);
@@ -354,6 +373,7 @@ function startChase() {
   message.textContent = "Mode chase aktif: setiap Player bergerak 1 blok, NPC bergerak 1 blok.";
 }
 
+// Reset all game state to initial conditions.
 function resetGame() {
   isChasing = false;
   npcCell = { ...initialNpc };
@@ -371,6 +391,7 @@ function resetGame() {
   draw();
 }
 
+// Generate a new random map layout and reposition entities.
 function randomizeMap() {
   MAP = [];
   for (let y = 0; y < ROWS; y++) {
@@ -405,6 +426,7 @@ function randomizeMap() {
   resetGame();
 }
 
+// Compare multiple algorithms on the current map configuration.
 function compareAlgorithms() {
   const configs = [
     { name: "UCS", algorithm: "ucs", heuristic: zeroHeuristic },
@@ -436,6 +458,7 @@ function compareAlgorithms() {
   draw();
 }
 
+// Handle keyboard input for player movement.
 function handleKeydown(event) {
   const keyName = event.key.toLowerCase();
   const moves = {
