@@ -88,6 +88,10 @@ function searchPath(grid, start, goal, options = {}) {
   const parent = new Map();
   const closed = new Set();
   const frontier = new PriorityQueue();
+  // Urutan node di-expand beserta "level" (priority saat di-dequeue).
+  // Untuk UCS level == g (cost), untuk A* level == g + h (f-score).
+  // Ini dipakai untuk animasi wave: node dengan level sama = satu kontur.
+  const expansionOrder = [];
 
   gScore.set(key(start), 0);
   const startH = heuristic(start, goal);
@@ -112,6 +116,12 @@ function searchPath(grid, start, goal, options = {}) {
     }
 
     expandedNodes++;
+    expansionOrder.push({
+      x: current.x,
+      y: current.y,
+      level: entry.priority,
+      g: gScore.get(currentKey)
+    });
 
     if (sameCell(current, goal)) {
       const path = reconstructPath(parent, start, goal);
@@ -120,6 +130,7 @@ function searchPath(grid, start, goal, options = {}) {
         path,
         expandedNodes,
         expandedNodesList: [...closed, currentKey],
+        expansionOrder,
         frontierNodes: frontier.toArray(),
         pathCost: gScore.get(currentKey),
         pathLength: Math.max(0, path.length - 1),
@@ -156,6 +167,7 @@ function searchPath(grid, start, goal, options = {}) {
     path: [],
     expandedNodes,
     expandedNodesList: [...closed],
+    expansionOrder,
     frontierNodes: [],
     pathCost: null,
     pathLength: 0,
