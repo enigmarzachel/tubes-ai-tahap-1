@@ -1,34 +1,25 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NPC Pathfinding: UCS vs A* + Animasi Wavefront</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
   <div class="page">
-    <h1>Simulasi UCS vs A*</h1>
+    <h1>Simulasi NPC Chase (UCS vs A*)</h1>
+    <p class="intro">
+      Gerakkan Player dengan WASD / tombol panah. NPC (merah) mengejar Player (ungu)
+      memakai algoritma pencarian yang dipilih. Aktifkan animasi wavefront untuk melihat
+      bagaimana node di-expand kontur demi kontur, mirip demo
+      <em>"UCS expands equal-cost contours"</em>.
+    </p>
 
     <div class="layout">
       <div class="game-card">
         <canvas id="gameCanvas" width="800" height="600"></canvas>
-        <div class="legend">
-          <h2>Legenda</h2>
-          <div><span class="swatch expanded"></span> Node sudah di-expand (wave)</div>
-          <div><span class="swatch wavefront"></span> Kontur terbaru (wave-front)</div>
-          <div><span class="swatch frontier"></span> Frontier (belum di-expand)</div>
-          <div><span class="swatch path"></span> Jalur hasil pencarian</div>
-          <div><img class="sprite-icon" src="npc.png" alt="NPC" /> NPC (musuh)</div>
-          <div><img class="sprite-icon" src="player.png" alt="Player" /> Player</div>
-          <div><img class="sprite-icon" src="tree.png" alt="Tree" /><img class="sprite-icon" src="tree2.png"
-              alt="Tree 2" /> Pohon (tidak bisa dilewati, 2 varian acak)</div>
-          <div><img class="sprite-icon" src="grass.png" alt="Grass" /><img class="sprite-icon" src="grass2.png"
-              alt="Grass 2" /><img class="sprite-icon" src="grass3.png" alt="Grass 3" /> Rumput (3 varian acak)</div>
-          <div><img class="sprite-icon" src="water.png" alt="Water" /> Sungai (cost 3, 1 varian)</div>
-        </div>
+        <p class="hint">WASD / Panah untuk menggerakkan Player.</p>
       </div>
 
       <div class="panel">
@@ -61,7 +52,18 @@
           <label for="debugCheckbox" style="margin:0;">Tampilkan overlay frontier &amp; path</label>
         </div>
 
-
+        <div class="legend">
+          <h2>Legenda</h2>
+          <div><span class="swatch expanded"></span> Node sudah di-expand (wave)</div>
+          <div><span class="swatch wavefront"></span> Kontur terbaru (wave-front)</div>
+          <div><span class="swatch frontier"></span> Frontier (belum di-expand)</div>
+          <div><span class="swatch path"></span> Jalur hasil pencarian</div>
+          <div><img class="sprite-icon" src="npc.png" alt="NPC" /> NPC (musuh)</div>
+          <div><img class="sprite-icon" src="player.png" alt="Player" /> Player</div>
+          <div><img class="sprite-icon" src="tree.png" alt="Tree" /><img class="sprite-icon" src="tree2.png" alt="Tree 2" /> Pohon (tidak bisa dilewati, 2 varian acak)</div>
+          <div><img class="sprite-icon" src="grass.png" alt="Grass" /><img class="sprite-icon" src="grass2.png" alt="Grass 2" /><img class="sprite-icon" src="grass3.png" alt="Grass 3" /> Rumput (3 varian acak)</div>
+          <div><img class="sprite-icon" src="water.png" alt="Water" /> Sungai (cost 3, 1 varian)</div>
+        </div>
 
         <div class="legend">
           <h2>Animasi Wavefront Ekspansi</h2>
@@ -104,16 +106,15 @@
 
     <div class="notes">
       <p><strong>Cara main:</strong> gerakkan Player, tekan "Start NPC Chase" agar NPC otomatis mengejar
-        setiap kali Player bergerak satu langkah. Klik "Run Pathfinding" untuk menghitung ulang jalur dari
-        NPC ke Player tanpa menggerakkan siapa pun.</p>
+      setiap kali Player bergerak satu langkah. Klik "Run Pathfinding" untuk menghitung ulang jalur dari
+      NPC ke Player tanpa menggerakkan siapa pun.</p>
       <p><strong>Tentang animasi wavefront:</strong> setiap kali pencarian baru dijalankan, wave otomatis
-        direset. Tekan "Play" untuk memutarnya otomatis, "Step" untuk maju satu kontur setiap klik, atau
-        "Reset Wave" untuk mengulang dari awal tanpa menjalankan pencarian baru.</p>
+      direset. Tekan "Play" untuk memutarnya otomatis, "Step" untuk maju satu kontur setiap klik, atau
+      "Reset Wave" untuk mengulang dari awal tanpa menjalankan pencarian baru.</p>
     </div>
   </div>
 
   <script src="pathfinding.js"></script>
   <script src="script.js"></script>
 </body>
-
 </html>

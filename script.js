@@ -239,14 +239,14 @@ function drawDebug() {
   // adalah visualisasi utama untuk memahami urutan ekspansi node.
   for (const cellKey of animRevealedKeys) {
     const [x, y] = cellKey.split(",").map(Number);
-    ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
+    ctx.fillStyle = "rgba(255, 215, 0, 0.55)";
     ctx.fillRect(x * CELL + 5, y * CELL + 5, CELL - 10, CELL - 10);
   }
 
   // Highlight kontur yang baru saja terungkap (wave-front) dengan cincin biru
   const lastContour = animContours[animStepIndex - 1];
   if (lastContour) {
-    ctx.strokeStyle = "rgba(37, 99, 235, 1)";
+    ctx.strokeStyle = "rgba(37, 99, 235, 0.9)";
     ctx.lineWidth = 2;
     for (const node of lastContour.nodes) {
       ctx.strokeRect(node.x * CELL + 3, node.y * CELL + 3, CELL - 6, CELL - 6);
@@ -260,7 +260,7 @@ function drawDebug() {
     ctx.fillRect(cell.x * CELL + 9, cell.y * CELL + 9, CELL - 18, CELL - 18);
   }
   for (const cell of currentResult.path) {
-    ctx.fillStyle = "rgba(205, 202, 50, 1)";
+    ctx.fillStyle = "rgba(50, 205, 50, 0.60)";
     ctx.fillRect(cell.x * CELL + 12, cell.y * CELL + 12, CELL - 24, CELL - 24);
   }
 }
@@ -313,7 +313,7 @@ function draw() {
 }
 
 function getSelectedHeuristic() {
-  return getHeuristicName(heuristicSelect.value);
+  return getHeuristic(heuristicSelect.value);
 }
 
 function getAlgorithmName() {
