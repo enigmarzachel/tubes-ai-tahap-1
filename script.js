@@ -1,6 +1,6 @@
 // ================================================================
 // script.js
-// Moving Player + NPC chase + search ulang setiap Player bergerak
+// Moving Player + NPC chase (Otomatis) + Wavefront Red + Always-On Overlay
 // ================================================================
 
 const canvas = document.getElementById("gameCanvas");
@@ -8,23 +8,16 @@ const ctx = canvas.getContext("2d");
 
 const algorithmSelect = document.getElementById("algorithm");
 const heuristicSelect = document.getElementById("heuristic");
-const runBtn = document.getElementById("runBtn");
-const startBtn = document.getElementById("startBtn");
 const resetBtn = document.getElementById("resetBtn");
-const compareBtn = document.getElementById("compareBtn");
-const debugCheckbox = document.getElementById("debugCheckbox");
 const randomBtn = document.getElementById("randomBtn");
-
-const animPlayBtn = document.getElementById("animPlayBtn");
-const animStepBtn = document.getElementById("animStepBtn");
-const animResetBtn = document.getElementById("animResetBtn");
-const animSpeedSelect = document.getElementById("animSpeed");
-const animStatsContent = document.getElementById("animStatsContent");
 
 const statsContent = document.getElementById("statsContent");
 const historyContent = document.getElementById("historyContent");
 const message = document.getElementById("message");
 const compareResult = document.getElementById("compareResult");
+
+const gameOverModal = document.getElementById("gameOverModal");
+const restartBtn = document.getElementById("restartBtn");
 
 const COLS = 20;
 const ROWS = 15;
@@ -32,31 +25,8 @@ const CELL = 40;
 const GRID_WIDTH = COLS * CELL;
 const GRID_HEIGHT = ROWS * CELL;
 
-// Diubah menjadi 'let' agar bisa diacak ulang
-let MAP = [
-  "....................",
-  "...###..............",
-  "...#................",
-  "...#......RRR.......",
-  "...#......R.........",
-  "...........R........",
-  "....#####..R..###...",
-  "...........R........",
-  "...........R........",
-  "..RRR......R........",
-  "....R...............",
-  "....R....#####......",
-  "....R...............",
-  ".........##.........",
-  "...................."
-];
+let MAP = [];
 
-// ================================================================
-// Aset gambar: npc, player, 3 varian grass, 2 varian tree, water
-// Untuk terrain yang punya beberapa varian (grass, tree), variannya
-// diacak sekali per sel saat map dibuat/diacak, lalu disimpan supaya
-// tidak berubah-ubah setiap kali frame di-redraw.
-// ================================================================
 const GRASS_KEYS = ["grass1", "grass2", "grass3"];
 const TREE_KEYS = ["tree1", "tree2"];
 
@@ -65,7 +35,6 @@ function preloadImage(assetKey, src) {
   const img = new Image();
   img.src = src;
   IMAGES[assetKey] = img;
-  // Kalau gambar baru selesai load setelah frame pertama, redraw sekali
   img.addEventListener("load", () => draw());
 }
 preloadImage("grass1", "grass.png");
@@ -81,8 +50,6 @@ function pickRandom(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-// tileVariantMap[y][x] = key aset yang dipakai untuk sel tsb ("grass1"/"grass2"/
-// "grass3" untuk rumput, "tree1"/"tree2" untuk tembok/pohon, "water" untuk sungai)
 let tileVariantMap = [];
 function generateTileVariants() {
   const variants = [];
@@ -102,7 +69,6 @@ function generateTileVariants() {
   }
   return variants;
 }
-tileVariantMap = generateTileVariants();
 
 const grid = {
   cols: COLS,
@@ -118,7 +84,7 @@ const grid = {
     return this.isInside(cell) && this.getTerrain(cell) !== "#";
   },
   getStepCost(cell) {
-    return this.getTerrain(cell) === "R" ? 3 : 1;
+    return this.getTerrain(cell) === "R" ? 7 : 1;
   },
   getNeighbors(cell) {
     const moves = [
@@ -141,14 +107,14 @@ const grid = {
   }
 };
 
-// Diubah menjadi 'let'
-let initialNpc = { x: 1, y: 13 };
-let initialPlayer = { x: 18, y: 1 };
+let initialNpc = { x: 0, y: 0 };
+let initialPlayer = { x: 0, y: 0 };
 
 let npcCell = { ...initialNpc };
 let playerCell = { ...initialPlayer };
 let currentResult = null;
-let isChasing = false;
+let isChasing = true;
+let isGameOver = false;
 
 let totalSearches = 0;
 let totalExpanded = 0;
@@ -156,8 +122,6 @@ let totalSearchTime = 0;
 let searchHistory = [];
 
 // ---- Wavefront expansion animation state ----
-// Node-node hasil search dikelompokkan per "kontur" (level cost yang sama).
-// Animasi mengungkap kontur demi kontur, mirip visualisasi UCS wave.
 let animContours = [];
 let animRevealedKeys = new Set();
 let animStepIndex = 0;
@@ -186,7 +150,7 @@ function drawSprite(assetKey, dx, dy, size) {
 
 function drawGrid() {
   ctx.clearRect(0, 0, GRID_WIDTH, GRID_HEIGHT);
-  ctx.imageSmoothingEnabled = false; // aset pixel-art tetap tajam saat diperbesar
+  ctx.imageSmoothingEnabled = false;
 
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
@@ -196,7 +160,6 @@ function drawGrid() {
       const variantKey = tileVariantMap[y] ? tileVariantMap[y][x] : null;
 
       if (terrain === "#") {
-        // Base rumput dulu (aset tree punya area transparan), baru pohonnya di atas
         if (!drawSprite("grass1", px, py, CELL)) {
           ctx.fillStyle = "#d9f99d";
           ctx.fillRect(px, py, CELL, CELL);
@@ -225,7 +188,7 @@ function drawGrid() {
         ctx.font = "bold 11px Arial";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText("3", px + CELL - 9, py + CELL - 9);
+        ctx.fillText("7", px + CELL - 9, py + CELL - 9);
       }
     }
   }
@@ -234,16 +197,12 @@ function drawGrid() {
 function drawDebug() {
   if (!currentResult) return;
 
-  // Wave animasi: node yang sudah "di-expand" sejauh animasi berjalan.
-  // Ditampilkan selalu (bukan hanya saat debug checkbox aktif) karena ini
-  // adalah visualisasi utama untuk memahami urutan ekspansi node.
   for (const cellKey of animRevealedKeys) {
     const [x, y] = cellKey.split(",").map(Number);
-    ctx.fillStyle = "rgba(255, 215, 0, 0.55)";
+    ctx.fillStyle = "rgba(255, 5, 5, 0.68)";
     ctx.fillRect(x * CELL + 5, y * CELL + 5, CELL - 10, CELL - 10);
   }
 
-  // Highlight kontur yang baru saja terungkap (wave-front) dengan cincin biru
   const lastContour = animContours[animStepIndex - 1];
   if (lastContour) {
     ctx.strokeStyle = "rgba(37, 99, 235, 0.9)";
@@ -253,14 +212,12 @@ function drawDebug() {
     }
   }
 
-  if (!debugCheckbox.checked) return;
-
   for (const cell of currentResult.frontierNodes) {
-    ctx.fillStyle = "rgba(70, 130, 255, 0.35)";
+    ctx.fillStyle = "rgba(30, 98, 244, 0.79)";
     ctx.fillRect(cell.x * CELL + 9, cell.y * CELL + 9, CELL - 18, CELL - 18);
   }
   for (const cell of currentResult.path) {
-    ctx.fillStyle = "rgba(50, 205, 50, 0.60)";
+    ctx.fillStyle = "rgba(255, 251, 0, 0.83)";
     ctx.fillRect(cell.x * CELL + 12, cell.y * CELL + 12, CELL - 24, CELL - 24);
   }
 }
@@ -284,7 +241,7 @@ function drawEntities() {
 
   const npc = cellToPixel(npcCell);
   if (!drawSprite("npc", npc.x + inset, npc.y + inset, spriteSize)) {
-    ctx.fillStyle = "#ef4444";
+    ctx.fillStyle = "#fb0202";
     ctx.beginPath();
     ctx.arc(npc.x + CELL / 2, npc.y + CELL / 2, 13, 0, Math.PI * 2);
     ctx.fill();
@@ -358,37 +315,33 @@ function updateHistory() {
   historyContent.innerHTML = `
     <div class="history-box">
       <table>
-        <tr><th>#</th><th>Goal</th><th>Expanded</th><th>Cost</th></tr>
-        ${recent.map(item => `
-          <tr>
-            <td>${item.number}</td>
-            <td>${item.goal}</td>
-            <td>${item.expanded}</td>
-            <td>${item.cost}</td>
-          </tr>
-        `).join("")}
+        <tr><th>No</th><th>Aksi</th><th>Goal</th><th>Expanded</th><th>Cost</th></tr>
+        ${recent.map(item => {
+          const icon = item.source === "player" ? "Player" : "NPC";
+          return `
+            <tr>
+              <td>${item.number}</td>
+              <td>${icon}</td>
+              <td>${item.goal}</td>
+              <td>${item.expanded}</td>
+              <td>${item.cost}</td>
+            </tr>
+          `;
+        }).join("")}
       </table>
     </div>
   `;
 }
 
 // ================================================================
-// Animasi wavefront ekspansi node (mirip UCS wave demo)
+// Animasi wavefront ekspansi node (Otomatis)
 // ================================================================
-
-function getAnimSpeedMs() {
-  const value = animSpeedSelect ? animSpeedSelect.value : "normal";
-  if (value === "slow") return 700;
-  if (value === "fast") return 120;
-  return 320;
-}
 
 function buildContours(expansionOrder) {
   const contours = [];
   let currentLevel = null;
   let currentGroup = null;
   for (const node of expansionOrder) {
-    // Dibulatkan supaya heuristic euclidean (desimal) tetap terkelompok rapi
     const levelKey = Math.round(node.level * 1000) / 1000;
     if (currentGroup && levelKey === currentLevel) {
       currentGroup.push(node);
@@ -407,7 +360,6 @@ function stopAnimTimer() {
     animTimer = null;
   }
   animPlaying = false;
-  if (animPlayBtn) animPlayBtn.textContent = "▶ Play";
 }
 
 function prepareAnimation(result) {
@@ -415,29 +367,7 @@ function prepareAnimation(result) {
   animContours = result && result.expansionOrder ? buildContours(result.expansionOrder) : [];
   animRevealedKeys = new Set();
   animStepIndex = 0;
-  updateAnimStats();
-}
-
-function updateAnimStats() {
-  if (!animStatsContent) return;
-  if (!currentResult || animContours.length === 0) {
-    animStatsContent.innerHTML = "Belum ada data ekspansi.";
-    return;
-  }
-  const totalNodes = currentResult.expandedNodes;
-  const lastContour = animContours[animStepIndex - 1];
-  const currentLevel = lastContour ? lastContour.level : "-";
-  const nodesInContour = lastContour ? lastContour.nodes.length : 0;
-  const done = animStepIndex >= animContours.length;
-  animStatsContent.innerHTML = `
-    <table>
-      <tr><td>Kontur ke-</td><td>${animStepIndex} / ${animContours.length}</td></tr>
-      <tr><td>Level kontur (g${getAlgorithmName() === "A*" ? "+h" : ""})</td><td>${currentLevel}</td></tr>
-      <tr><td>Node pada kontur ini</td><td>${nodesInContour}</td></tr>
-      <tr><td>Node ter-expand</td><td>${animRevealedKeys.size} / ${totalNodes}</td></tr>
-      <tr><td>Status</td><td>${done ? "Selesai" : "Berjalan"}</td></tr>
-    </table>
-  `;
+  playAnimation();
 }
 
 function stepAnimationOnce() {
@@ -450,7 +380,6 @@ function stepAnimationOnce() {
     animRevealedKeys.add(`${node.x},${node.y}`);
   }
   animStepIndex++;
-  updateAnimStats();
   draw();
   if (animStepIndex >= animContours.length) {
     stopAnimTimer();
@@ -459,183 +388,22 @@ function stepAnimationOnce() {
 
 function playAnimation() {
   if (!currentResult || animContours.length === 0) return;
-  if (animPlaying) {
-    stopAnimTimer();
-    return;
-  }
-  // Kalau animasi sudah selesai, mulai ulang dari awal
   if (animStepIndex >= animContours.length) {
     animRevealedKeys = new Set();
     animStepIndex = 0;
   }
   animPlaying = true;
-  animPlayBtn.textContent = "⏸ Pause";
-  animTimer = setInterval(stepAnimationOnce, getAnimSpeedMs());
+  animTimer = setInterval(stepAnimationOnce, 320);
 }
 
-function resetAnimationView() {
-  stopAnimTimer();
-  animRevealedKeys = new Set();
-  animStepIndex = 0;
-  updateAnimStats();
-  draw();
+function showGameOverModal() {
+  isGameOver = true;
+  gameOverModal.classList.remove("hidden");
 }
 
-function calculateChasePath(showMessage = true) {
-  const algorithm = algorithmSelect.value;
-  const heuristic = algorithm === "ucs" ? zeroHeuristic : getSelectedHeuristic();
-
-  const result = searchPath(grid, npcCell, playerCell, { algorithm, heuristic });
-  currentResult = result;
-  prepareAnimation(result);
-
-  totalSearches++;
-  totalExpanded += result.expandedNodes;
-  totalSearchTime += result.searchTimeMs;
-
-  searchHistory.push({
-    number: totalSearches,
-    goal: `(${playerCell.x}, ${playerCell.y})`,
-    expanded: result.expandedNodes,
-    cost: result.pathCost ?? "No path"
-  });
-
-  updateStats(result);
-  updateHistory();
-
-  if (showMessage) {
-    if (result.found) {
-      message.className = "message status-success";
-      message.textContent = `Path ditemukan ke Player. Search #${totalSearches}.`;
-    } else {
-      message.className = "message status-error";
-      message.textContent = "No path found.";
-    }
-  }
-  draw();
-  return result;
-}
-
-function moveNpcOneStep() {
-  if (!isChasing) return;
-  if (!currentResult || !currentResult.found) return;
-
-  if (sameCell(npcCell, playerCell)) {
-    message.className = "message status-success";
-    message.textContent = "NPC sudah berada di posisi Player. Mengacak map baru...";
-    setTimeout(randomizeMap, 1200);
-    return;
-  }
-
-  const path = currentResult.path;
-  const npcIndex = path.findIndex(cell => sameCell(cell, npcCell));
-  if (npcIndex < 0 || npcIndex + 1 >= path.length) return;
-
-  npcCell = { ...path[npcIndex + 1] };
-  calculateChasePath(false);
-
-  if (sameCell(npcCell, playerCell)) {
-    message.className = "message status-success";
-    message.textContent = "Tertangkap! NPC berhasil menangkap Player. Auto-reset dalam 1.5 detik...";
-    isChasing = false; // Matikan gerakan player sementara
-    setTimeout(randomizeMap, 1500);
-  }
-}
-
-function movePlayer(dx, dy) {
-  if (!isChasing && sameCell(npcCell, playerCell)) return; // Jangan gerak jika tertangkap
-
-  const next = { x: playerCell.x + dx, y: playerCell.y + dy };
-  if (!grid.isPassable(next)) {
-    message.className = "message status-error";
-    message.textContent = "Player tidak bisa bergerak ke cell tersebut.";
-    return;
-  }
-  if (sameCell(next, playerCell)) return;
-
-  playerCell = next;
-  calculateChasePath(false);
-
-  if (isChasing) {
-    moveNpcOneStep();
-    if (!sameCell(npcCell, playerCell)) {
-      message.className = "message status-success";
-      message.textContent = `Player bergerak 1 blok -> NPC bergerak 1 blok.`;
-    }
-  } else {
-    message.className = "message status-success";
-    message.textContent = `Player bergerak ke (${playerCell.x}, ${playerCell.y}). Tekan Start NPC Chase agar NPC ikut bergerak.`;
-  }
-  draw();
-}
-
-function runPathfinding() {
-  calculateChasePath(true);
-}
-
-function startChase() {
-  isChasing = true;
-  calculateChasePath(false);
-  message.className = "message status-success";
-  message.textContent = "Mode chase aktif: setiap Player bergerak 1 blok, NPC bergerak 1 blok.";
-}
-
-function resetGame() {
-  isChasing = false;
-  npcCell = { ...initialNpc };
-  playerCell = { ...initialPlayer };
-  currentResult = null;
-  totalSearches = 0;
-  totalExpanded = 0;
-  totalSearchTime = 0;
-  searchHistory = [];
-  stopAnimTimer();
-  animContours = [];
-  animRevealedKeys = new Set();
-  animStepIndex = 0;
-  statsContent.innerHTML = "Tekan Run atau gerakkan Player.";
-  historyContent.innerHTML = "Belum ada perhitungan.";
-  if (animStatsContent) animStatsContent.innerHTML = "Belum ada data ekspansi.";
-  compareResult.innerHTML = "";
-  message.className = "message";
-  message.textContent = "";
-  draw();
-}
-
-function randomizeMap() {
-  MAP = [];
-  for (let y = 0; y < ROWS; y++) {
-    let row = "";
-    for (let x = 0; x < COLS; x++) {
-      const rand = Math.random();
-      if (rand < 0.20) row += "#";
-      else if (rand < 0.35) row += "R";
-      else row += ".";
-    }
-    MAP.push(row);
-  }
-
-  tileVariantMap = generateTileVariants();
-
-  function getRandomEmptyCell() {
-    let cell;
-    while (true) {
-      const rx = Math.floor(Math.random() * COLS);
-      const ry = Math.floor(Math.random() * ROWS);
-      if (MAP[ry][rx] === ".") {
-        cell = { x: rx, y: ry };
-        break;
-      }
-    }
-    return cell;
-  }
-
-  initialNpc = getRandomEmptyCell();
-  do {
-    initialPlayer = getRandomEmptyCell();
-  } while (sameCell(initialNpc, initialPlayer));
-
-  resetGame();
+function hideGameOverModal() {
+  isGameOver = false;
+  gameOverModal.classList.add("hidden");
 }
 
 function compareAlgorithms() {
@@ -666,7 +434,166 @@ function compareAlgorithms() {
       `).join("")}
     </table>
   `;
+}
+
+function calculateChasePath(showMessage = true, source = "player") {
+  const algorithm = algorithmSelect.value;
+  const heuristic = algorithm === "ucs" ? zeroHeuristic : getSelectedHeuristic();
+
+  const result = searchPath(grid, npcCell, playerCell, { algorithm, heuristic });
+  currentResult = result;
+
+  totalSearches++;
+  totalExpanded += result.expandedNodes;
+  totalSearchTime += result.searchTimeMs;
+
+  searchHistory.push({
+    number: totalSearches,
+    source: source,
+    goal: `(${playerCell.x}, ${playerCell.y})`,
+    expanded: result.expandedNodes,
+    cost: result.pathCost ?? "No path"
+  });
+
+  updateStats(result);
+  updateHistory();
+  prepareAnimation(result);
+  compareAlgorithms();
+
+  if (showMessage) {
+    if (result.found) {
+      message.className = "message status-success";
+      message.textContent = `Path ditemukan ke Player. Search #${totalSearches}.`;
+    } else {
+      message.className = "message status-error";
+      message.textContent = "No path found.";
+    }
+  }
   draw();
+  return result;
+}
+
+function moveNpcOneStep() {
+  if (!isChasing || isGameOver) return;
+  if (!currentResult || !currentResult.found) return;
+
+  if (sameCell(npcCell, playerCell)) {
+    showGameOverModal();
+    return;
+  }
+
+  const path = currentResult.path;
+  const npcIndex = path.findIndex(cell => sameCell(cell, npcCell));
+  if (npcIndex < 0 || npcIndex + 1 >= path.length) return;
+
+  npcCell = { ...path[npcIndex + 1] };
+  calculateChasePath(false, "npc");
+
+  if (sameCell(npcCell, playerCell)) {
+    message.className = "message status-error";
+    message.textContent = "Tertangkap! NPC berhasil menangkap Player.";
+    setTimeout(showGameOverModal, 400);
+  }
+}
+
+function movePlayer(dx, dy) {
+  if (isGameOver || sameCell(npcCell, playerCell)) return;
+
+  const next = { x: playerCell.x + dx, y: playerCell.y + dy };
+  if (!grid.isPassable(next)) {
+    message.className = "message status-error";
+    return;
+  }
+  if (sameCell(next, playerCell)) return;
+
+  playerCell = next;
+  calculateChasePath(false, "player");
+
+  if (isChasing) {
+    moveNpcOneStep();
+    if (!sameCell(npcCell, playerCell)) {
+      message.className = "message status-success";
+    }
+  }
+  draw();
+}
+
+function resetGame() {
+  hideGameOverModal();
+  isChasing = true;
+  npcCell = { ...initialNpc };
+  playerCell = { ...initialPlayer };
+  currentResult = null;
+  totalSearches = 0;
+  totalExpanded = 0;
+  totalSearchTime = 0;
+  searchHistory = [];
+  stopAnimTimer();
+  animContours = [];
+  animRevealedKeys = new Set();
+  animStepIndex = 0;
+  statsContent.innerHTML = "Gerakkan Player untuk mulai.";
+  historyContent.innerHTML = "Belum ada perhitungan.";
+  compareResult.innerHTML = "";
+  message.className = "message";
+  message.textContent = "";
+  calculateChasePath(false, "player");
+}
+
+function hasPassableNeighbor(cell) {
+  return grid.getNeighbors(cell).length > 0;
+}
+
+function randomizeMap() {
+  hideGameOverModal();
+
+  let mapValid = false;
+  while (!mapValid) {
+    MAP = [];
+    for (let y = 0; y < ROWS; y++) {
+      let row = "";
+      for (let x = 0; x < COLS; x++) {
+        const rand = Math.random();
+        if (rand < 0.20) row += "#";
+        else if (rand < 0.35) row += "R";
+        else row += ".";
+      }
+      MAP.push(row);
+    }
+
+    tileVariantMap = generateTileVariants();
+
+    function getRandomEmptyCell(mustBeMovable = false) {
+      let cell;
+      let attempts = 0;
+      while (attempts < 500) {
+        attempts++;
+        const rx = Math.floor(Math.random() * COLS);
+        const ry = Math.floor(Math.random() * ROWS);
+        if (MAP[ry][rx] !== "#") {
+          cell = { x: rx, y: ry };
+          if (!mustBeMovable || hasPassableNeighbor(cell)) {
+            return cell;
+          }
+        }
+      }
+      return cell;
+    }
+
+    initialNpc = getRandomEmptyCell(false);
+    let attempts = 0;
+    do {
+      attempts++;
+      initialPlayer = getRandomEmptyCell(true);
+    } while (sameCell(initialNpc, initialPlayer) && attempts < 100);
+
+    const testResult = searchPath(grid, initialNpc, initialPlayer, { algorithm: "ucs" });
+    if (testResult.found && testResult.path.length > 1) {
+      mapValid = true;
+    }
+  }
+
+  resetGame();
 }
 
 function handleKeydown(event) {
@@ -684,23 +611,16 @@ function handleKeydown(event) {
 
 algorithmSelect.addEventListener("change", () => {
   heuristicSelect.disabled = algorithmSelect.value === "ucs";
-  calculateChasePath(true);
+  calculateChasePath(true, "player");
 });
 heuristicSelect.addEventListener("change", () => {
-  if (algorithmSelect.value === "astar") calculateChasePath(true);
+  if (algorithmSelect.value === "astar") calculateChasePath(true, "player");
 });
 
-runBtn.addEventListener("click", runPathfinding);
-startBtn.addEventListener("click", startChase);
 resetBtn.addEventListener("click", resetGame);
 randomBtn.addEventListener("click", randomizeMap);
-compareBtn.addEventListener("click", compareAlgorithms);
-debugCheckbox.addEventListener("change", draw);
+restartBtn.addEventListener("click", randomizeMap);
 window.addEventListener("keydown", handleKeydown);
 
-if (animPlayBtn) animPlayBtn.addEventListener("click", playAnimation);
-if (animStepBtn) animStepBtn.addEventListener("click", stepAnimationOnce);
-if (animResetBtn) animResetBtn.addEventListener("click", resetAnimationView);
-
 heuristicSelect.disabled = false;
-resetGame();
+randomizeMap();

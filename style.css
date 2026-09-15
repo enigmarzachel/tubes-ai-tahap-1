@@ -16,24 +16,25 @@ body {
 }
 
 h1 {
-  margin-bottom: 6px;
-}
-
-.intro {
-  margin-top: 0;
-  color: #4b5563;
+  margin-bottom: 12px;
 }
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(600px, 1fr) 310px;
+  grid-template-columns: minmax(600px, 1fr) 320px;
   gap: 18px;
   align-items: start;
 }
 
+.game-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .game-card,
-.panel,
-.notes {
+.controls-card,
+.panel {
   background: white;
   border: 1px solid #d1d5db;
   border-radius: 12px;
@@ -52,20 +53,23 @@ canvas {
   image-rendering: crisp-edges;
 }
 
-.hint {
-  margin-bottom: 0;
-  color: #4b5563;
-  font-size: 14px;
+/* Tata Letak Kontrol di Bawah Map */
+.controls-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .control-group {
-  margin-bottom: 12px;
+  margin-bottom: 4px;
 }
 
 label {
   display: block;
   font-weight: 700;
   margin-bottom: 6px;
+  font-size: 14px;
 }
 
 select,
@@ -80,120 +84,38 @@ button {
 
 button {
   cursor: pointer;
-  margin-bottom: 8px;
 }
 
 button:hover {
   background: #f3f4f6;
 }
 
-.secondary {
+.button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
   margin-top: 4px;
 }
 
-.button-row {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.anim-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.anim-row button {
-  margin-bottom: 0;
-}
-
-.swatch.wavefront {
-  background: transparent;
-  border: 2px solid rgba(37, 99, 235, 0.9);
-}
-
-.sprite-icon {
-  width: 20px;
-  height: 20px;
-  image-rendering: pixelated;
-  image-rendering: -moz-crisp-edges;
-  image-rendering: crisp-edges;
-  vertical-align: middle;
-  margin-right: 2px;
-  border: 1px solid #d1d5db;
-  border-radius: 3px;
-  background: #d9f99d;
-}
-
-.checkbox {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 8px 0 12px;
-}
-
-.checkbox input {
-  width: auto;
-}
-
-.legend,
-.stats,
-.history,
-.compare,
-.message {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.legend h2,
 .stats h2,
 .history h2 {
   margin: 0 0 10px;
   font-size: 16px;
 }
 
-.legend div {
-  margin: 7px 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.stats,
+.history,
+.compare,
+.message {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
 }
 
-.swatch {
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  border: 1px solid #6b7280;
-}
-
-.swatch.expanded {
-  background: rgba(255, 215, 0, 0.75);
-}
-
-.swatch.frontier {
-  background: rgba(70, 130, 255, 0.35);
-}
-
-.swatch.path {
-  background: rgba(50, 205, 50, 0.65);
-}
-
-.swatch.npc {
-  background: #ef4444;
-}
-
-.swatch.player {
-  background: #8b5cf6;
-}
-
-.swatch.obstacle {
-  background: #6b7280;
-}
-
-.swatch.river {
-  background: #60a5fa;
+.panel .stats:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .stats table,
@@ -228,12 +150,76 @@ button:hover {
   font-weight: 700;
 }
 
-.notes {
-  margin-top: 18px;
+/* Modal Game Over */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  opacity: 1;
+  transition: opacity 0.3s ease;
 }
 
-.notes p {
-  margin: 8px 0;
+.modal-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal-card {
+  background: white;
+  padding: 30px 40px;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+  transform: scale(1);
+  animation: popupAnim 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  max-width: 360px;
+  width: 90%;
+}
+
+@keyframes popupAnim {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.game-over-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.modal-card h2 {
+  margin: 0 0 16px;
+  font-size: 28px;
+  color: #ef4444;
+  letter-spacing: 1px;
+}
+
+.modal-card button {
+  background: #ef4444;
+  color: white;
+  border: none;
+  font-weight: bold;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: background 0.2s;
+}
+
+.modal-card button:hover {
+  background: #dc2626;
 }
 
 @media (max-width: 900px) {
