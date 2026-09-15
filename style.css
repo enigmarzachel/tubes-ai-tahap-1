@@ -47,6 +47,9 @@ canvas {
   display: block;
   background: #e5e7eb;
   border-radius: 8px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
 }
 
 .hint {
@@ -92,6 +95,35 @@ button:hover {
   display: grid;
   gap: 6px;
   margin-bottom: 6px;
+}
+
+.anim-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.anim-row button {
+  margin-bottom: 0;
+}
+
+.swatch.wavefront {
+  background: transparent;
+  border: 2px solid rgba(37, 99, 235, 0.9);
+}
+
+.sprite-icon {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  vertical-align: middle;
+  margin-right: 2px;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background: #d9f99d;
 }
 
 .checkbox {
