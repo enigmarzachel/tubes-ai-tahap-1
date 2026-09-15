@@ -2,19 +2,25 @@
 <html lang="id">
 
 <head>
+  <!-- Informasi dasar enkoding karakter dan responsivitas halaman -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NPC Pathfinding: UCS vs A*</title>
+
+  <!-- File stylesheet utama untuk tata letak dan tampilan UI -->
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
+  <!-- Container utama seluruh halaman -->
   <div class="page">
+    <!-- Judul aplikasi/game -->
     <h1>orang cimahi baik dikejar begal lampung</h1>
 
-    <!-- Baris Kontrol di Atas Map -->
+    <!-- Card Kontrol Utama di bagian atas canvas -->
     <div class="controls-card">
       <div class="controls-row">
+        <!-- Dropdown Pemilihan Algoritma Pathfinding (UCS / A*) -->
         <div class="control-group">
           <label for="algorithm">Algoritma</label>
           <select id="algorithm">
@@ -23,6 +29,7 @@
           </select>
         </div>
 
+        <!-- Dropdown Pemilihan Fungsi Heuristik (Manhattan / Euclidean) -->
         <div class="control-group">
           <label for="heuristic">Heuristik (khusus A*)</label>
           <select id="heuristic">
@@ -32,44 +39,49 @@
         </div>
       </div>
 
+      <!-- Tombol interaksi peta: Acak Peta Baru dan Reset Posisi -->
       <div class="button-row">
         <button id="randomBtn" class="secondary">Acak Map Baru</button>
         <button id="resetBtn" class="secondary">Reset</button>
       </div>
     </div>
 
+    <!-- Layout Dua Kolom: Game Canvas (Kiri) dan Panel Debug/Statistik (Kanan) -->
     <div class="layout">
-      <!-- Sisi Kiri: Map + Kontrol Game -->
+      <!-- Sisi Kiri: Tempat Rendering Canvas Game -->
       <div class="game-column">
         <div class="game-card">
+          <!-- Elemen Canvas tempat seluruh tile, NPC, Player, dan Debug Overlay digambar -->
           <canvas id="gameCanvas" width="800" height="600"></canvas>
         </div>
-
-
       </div>
 
-      <!-- Sisi Kanan: Panel Informasi & Statistik -->
+      <!-- Sisi Kanan: Panel Informasi Statistik, Riwayat, dan Evaluasi Perbandingan -->
       <div class="panel">
+        <!-- Panel Statistik Metrik Kinerja Pencarian Saat Ini & Kumulatif -->
         <div class="stats">
           <h2>Statistik</h2>
           <div id="statsContent">Gerakkan Player untuk mulai.</div>
         </div>
 
+        <!-- Panel Tabel Riwayat Pencarian Jalur Terakhir -->
         <div class="history">
           <h2>Riwayat Pencarian</h2>
           <div id="historyContent">Belum ada perhitungan.</div>
         </div>
 
+        <!-- Panel Tabel Perbandingan Langsung Performa UCS vs A* (Manhattan & Euclidean) -->
         <div class="compare">
           <div id="compareResult"></div>
         </div>
 
+        <!-- Area Pesan Status (Jalur Ditemukan / Tertangkap / Tidak ada Jalur) -->
         <div id="message" class="message"></div>
       </div>
     </div>
   </div>
 
-  <!-- POP-UP GAME OVER -->
+  <!-- Modal / Pop-up Game Over saat NPC berhasil menangkap Player -->
   <div id="gameOverModal" class="modal-overlay hidden">
     <div class="modal-card">
       <div class="game-over-icon">😜</div>
@@ -78,7 +90,9 @@
     </div>
   </div>
 
+  <!-- Import script logika pathfinding terlebih dahulu sebelum script game utama -->
   <script src="pathfinding.js"></script>
   <script src="script.js"></script>
 </body>
+
 </html>

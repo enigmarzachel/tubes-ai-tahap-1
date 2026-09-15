@@ -1,8 +1,10 @@
 // ================================================================
 // script.js
 // Moving Player + NPC chase (Otomatis) + Wavefront Red + Always-On Overlay
+// Mengelola rendering canvas, logika pergerakan entity, interaksi event, dan UI.
 // ================================================================
 
+// Inisialisasi referensi elemen HTML DOM
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -19,24 +21,29 @@ const compareResult = document.getElementById("compareResult");
 const gameOverModal = document.getElementById("gameOverModal");
 const restartBtn = document.getElementById("restartBtn");
 
-const COLS = 20;
-const ROWS = 15;
-const CELL = 40;
-const GRID_WIDTH = COLS * CELL;
-const GRID_HEIGHT = ROWS * CELL;
+// Konstanta Dimensi Grid Dunia Game
+const COLS = 20;            // Jumlah kolom grid
+const ROWS = 15;            // Jumlah baris grid
+const CELL = 40;            // Ukuran per petak dalam piksel (40x40 px)
+const GRID_WIDTH = COLS * CELL;   // Total lebar canvas = 800px
+const GRID_HEIGHT = ROWS * CELL;  // Total tinggi canvas = 600px
 
-let MAP = [];
+let MAP = []; // Array 2D menyimpan tipe terrain peta: '.' = Rumput, '#' = Tembok/Pohon, 'R' = Sungai/Air
 
+// Kunci aset gambar sprite
 const GRASS_KEYS = ["grass1", "grass2", "grass3"];
 const TREE_KEYS = ["tree1", "tree2"];
 
+// Objek penampung memori aset gambar (Image Preloader)
 const IMAGES = {};
 function preloadImage(assetKey, src) {
   const img = new Image();
   img.src = src;
   IMAGES[assetKey] = img;
-  img.addEventListener("load", () => draw());
+  img.addEventListener("load", () => draw()); // Gambar ulang canvas ketika gambar selesai dimuat
 }
+
+// Memuat seluruh sprite gambar permainan
 preloadImage("grass1", "grass.png");
 preloadImage("grass2", "grass2.png");
 preloadImage("grass3", "grass3.png");
@@ -46,10 +53,14 @@ preloadImage("water", "water.png");
 preloadImage("npc", "npc.png");
 preloadImage("player", "player.png");
 
+/**
+ * Mengambil satu elemen secara acak dari sebuah array.
+ */
 function pickRandom(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
+// Menyimpan pemetaan variasi tekstur visual per tile agar acak namun konsisten saat digambar ulang
 let tileVariantMap = [];
 function generateTileVariants() {
   const variants = [];
@@ -70,22 +81,30 @@ function generateTileVariants() {
   return variants;
 }
 
+/**
+ * Objek Grid API yang dilewatkan ke fungsi searchPath pada pathfinding.js
+ */
 const grid = {
   cols: COLS,
   rows: ROWS,
+  // Memeriksa batas area map
   isInside(cell) {
     return cell.x >= 0 && cell.x < this.cols &&
       cell.y >= 0 && cell.y < this.rows;
   },
+  // Mengambil tipe terrain pada koordinat tertentu
   getTerrain(cell) {
     return MAP[cell.y][cell.x];
   },
+  // Memeriksa apakah cell bisa dilewati (bukan tembok '#')
   isPassable(cell) {
     return this.isInside(cell) && this.getTerrain(cell) !== "#";
   },
+  // Mendapatkan biaya masuk per petak: Sungai ('R') berbiaya 7, Rumput biasa berbiaya 1
   getStepCost(cell) {
     return this.getTerrain(cell) === "R" ? 7 : 1;
   },
+  // Mengambil tetangga (4-connected: Atas, Bawah, Kiri, Kanan)
   getNeighbors(cell) {
     const moves = [
       { x: 0, y: -1 },
@@ -107,27 +126,32 @@ const grid = {
   }
 };
 
+// State posisi awal dan posisi aktif Entity Game
 let initialNpc = { x: 0, y: 0 };
 let initialPlayer = { x: 0, y: 0 };
 
 let npcCell = { ...initialNpc };
 let playerCell = { ...initialPlayer };
-let currentResult = null;
+let currentResult = null; // Menyimpan objek hasil return dari searchPath()
 let isChasing = true;
 let isGameOver = false;
 
+// Variabel Metrik Statistik Kumulatif
 let totalSearches = 0;
 let totalExpanded = 0;
 let totalSearchTime = 0;
 let searchHistory = [];
 
-// ---- Wavefront expansion animation state ----
+// ---- State Animasi Gelombang Ekspansi Node (Wavefront Animation) ----
 let animContours = [];
 let animRevealedKeys = new Set();
 let animStepIndex = 0;
 let animTimer = null;
 let animPlaying = false;
 
+/**
+ * Konversi koordinat grid {x, y} ke koordinat piksel canvas.
+ */
 function cellToPixel(cell) {
   return {
     x: cell.x * CELL,
@@ -135,10 +159,16 @@ function cellToPixel(cell) {
   };
 }
 
+/**
+ * Memeriksa kesamaan koordinat dua sel.
+ */
 function sameCell(a, b) {
   return a.x === b.x && a.y === b.y;
 }
 
+/**
+ * Menggambar sprite gambar ke canvas jika dimuat, dengan pengamanan fallback.
+ */
 function drawSprite(assetKey, dx, dy, size) {
   const img = IMAGES[assetKey];
   if (img && img.complete && img.naturalWidth > 0) {
@@ -148,6 +178,9 @@ function drawSprite(assetKey, dx, dy, size) {
   return false;
 }
 
+/**
+ * Menggambar seluruh lingkungan peta (Terrain, Gridlines, dan Label Biaya Sungai)
+ */
 function drawGrid() {
   ctx.clearRect(0, 0, GRID_WIDTH, GRID_HEIGHT);
   ctx.imageSmoothingEnabled = false;
@@ -159,7 +192,7 @@ function drawGrid() {
       const py = y * CELL;
       const variantKey = tileVariantMap[y] ? tileVariantMap[y][x] : null;
 
-      if (terrain === "#") {
+      if (terrain === "#") { // Pohon / Tembok
         if (!drawSprite("grass1", px, py, CELL)) {
           ctx.fillStyle = "#d9f99d";
           ctx.fillRect(px, py, CELL, CELL);
@@ -168,21 +201,23 @@ function drawGrid() {
           ctx.fillStyle = "#6b7280";
           ctx.fillRect(px + 4, py + 4, CELL - 8, CELL - 8);
         }
-      } else if (terrain === "R") {
+      } else if (terrain === "R") { // Sungai / Air
         if (!drawSprite("water", px, py, CELL)) {
           ctx.fillStyle = "#60a5fa";
           ctx.fillRect(px, py, CELL, CELL);
         }
-      } else {
+      } else { // Rumput biasa
         if (!drawSprite(variantKey, px, py, CELL)) {
           ctx.fillStyle = "#d9f99d";
           ctx.fillRect(px, py, CELL, CELL);
         }
       }
 
+      // Garis grid pembatas petak
       ctx.strokeStyle = "rgba(107, 114, 128, 0.35)";
       ctx.strokeRect(px, py, CELL, CELL);
 
+      // Berikan angka label biaya "7" untuk petak sungai
       if (terrain === "R") {
         ctx.fillStyle = "rgba(29, 78, 216, 0.9)";
         ctx.font = "bold 11px Arial";
@@ -194,15 +229,20 @@ function drawGrid() {
   }
 }
 
+/**
+ * Menggambar Debug Overlay (Expanded Nodes, Wavefront Frontier, dan Jalur Optimal Final)
+ */
 function drawDebug() {
   if (!currentResult) return;
 
+  // 1. Gambar petak biru transparan untuk node yang sudah di-expand (Explored Set)
   for (const cellKey of animRevealedKeys) {
     const [x, y] = cellKey.split(",").map(Number);
     ctx.fillStyle = "rgba(24, 132, 252, 0.68)";
     ctx.fillRect(x * CELL + 5, y * CELL + 5, CELL - 10, CELL - 10);
   }
 
+  // 2. Gambar garis tepi merah untuk kontur gelombang ekspansi yang sedang aktif
   const lastContour = animContours[animStepIndex - 1];
   if (lastContour) {
     ctx.strokeStyle = "rgba(235, 37, 37, 0.9)";
@@ -212,20 +252,27 @@ function drawDebug() {
     }
   }
 
+  // 3. Gambar kotak biru gelap untuk node yang berada di dalam Frontier (Open Set)
   for (const cell of currentResult.frontierNodes) {
     ctx.fillStyle = "rgba(41, 30, 244, 0.79)";
     ctx.fillRect(cell.x * CELL + 9, cell.y * CELL + 9, CELL - 18, CELL - 18);
   }
+
+  // 4. Gambar kotak kuning terang untuk memperlihatkan Jalur Solusi Terpendek
   for (const cell of currentResult.path) {
     ctx.fillStyle = "rgba(255, 238, 0, 1)";
     ctx.fillRect(cell.x * CELL + 12, cell.y * CELL + 12, CELL - 24, CELL - 24);
   }
 }
 
+/**
+ * Menggambar karakter Player, NPC, dan garis target pergejaran.
+ */
 function drawEntities() {
   const spriteSize = CELL - 4;
   const inset = 2;
 
+  // Gambar Player
   const player = cellToPixel(playerCell);
   if (!drawSprite("player", player.x + inset, player.y + inset, spriteSize)) {
     ctx.fillStyle = "#8b5cf6";
@@ -239,6 +286,7 @@ function drawEntities() {
     ctx.fillText("P", player.x + CELL / 2, player.y + CELL / 2);
   }
 
+  // Gambar NPC
   const npc = cellToPixel(npcCell);
   if (!drawSprite("npc", npc.x + inset, npc.y + inset, spriteSize)) {
     ctx.fillStyle = "#fb0202";
@@ -252,6 +300,7 @@ function drawEntities() {
     ctx.fillText("N", npc.x + CELL / 2, npc.y + CELL / 2);
   }
 
+  // Gambar Garis Putus-putus penghubung NPC -> Player saat pengejar aktif
   if (isChasing) {
     ctx.strokeStyle = "rgba(0, 0, 0, 0.25)";
     ctx.setLineDash([5, 5]);
@@ -263,25 +312,40 @@ function drawEntities() {
   }
 }
 
+/**
+ * Master Render Loop untuk menggambar ulang seluruh tampilan canvas.
+ */
 function draw() {
   drawGrid();
   drawDebug();
   drawEntities();
 }
 
+/**
+ * Mendapatkan referensi fungsi heuristik aktif dari dropdown UI.
+ */
 function getSelectedHeuristic() {
   return getHeuristic(heuristicSelect.value);
 }
 
+/**
+ * Mendapatkan string nama algoritma untuk ditampilkan di statistik.
+ */
 function getAlgorithmName() {
   return algorithmSelect.value === "ucs" ? "UCS" : "A*";
 }
 
+/**
+ * Mendapatkan string nama heuristik terpopuler.
+ */
 function getHeuristicName() {
   if (algorithmSelect.value === "ucs") return "Zero";
   return heuristicSelect.options[heuristicSelect.selectedIndex].text;
 }
 
+/**
+ * Memperbarui tabel informasi statistik di panel kanan UI.
+ */
 function updateStats(result) {
   if (!result) {
     statsContent.innerHTML = "Belum ada perhitungan.";
@@ -306,12 +370,15 @@ function updateStats(result) {
   `;
 }
 
+/**
+ * Memperbarui tabel riwayat pencarian jalur terakhir.
+ */
 function updateHistory() {
   if (searchHistory.length === 0) {
     historyContent.innerHTML = "Belum ada perhitungan.";
     return;
   }
-  const recent = searchHistory.slice(-12).reverse();
+  const recent = searchHistory.slice(-12).reverse(); // Tampilkan 12 pencarian terakhir secara terbalik (terbaru di atas)
   historyContent.innerHTML = `
     <div class="history-box">
       <table>
@@ -335,6 +402,7 @@ function updateHistory() {
 
 // ================================================================
 // Animasi wavefront ekspansi node (Otomatis)
+// Mengelompokkan node berdasarkan level f-score / g-score untuk simulasi gelombang
 // ================================================================
 
 function buildContours(expansionOrder) {
@@ -393,19 +461,29 @@ function playAnimation() {
     animStepIndex = 0;
   }
   animPlaying = true;
-  animTimer = setInterval(stepAnimationOnce, 320);
+  animTimer = setInterval(stepAnimationOnce, 320); // Interval tiap kontur di-render
 }
 
+/**
+ * Menampilkan modal popup Game Over.
+ */
 function showGameOverModal() {
   isGameOver = true;
   gameOverModal.classList.remove("hidden");
 }
 
+/**
+ * Menyembunyikan modal popup Game Over.
+ */
 function hideGameOverModal() {
   isGameOver = false;
   gameOverModal.classList.add("hidden");
 }
 
+/**
+ * Menjalankan simulasi paralel perbandingan antara UCS, A* Manhattan, dan A* Euclidean
+ * untuk dibandingkan performanya pada kondisi peta & posisi saat ini.
+ */
 function compareAlgorithms() {
   const configs = [
     { name: "UCS", algorithm: "ucs", heuristic: zeroHeuristic },
@@ -436,10 +514,14 @@ function compareAlgorithms() {
   `;
 }
 
+/**
+ * Menghitung ulang jalur pengejaran NPC menuju Player menggunakan konfigurasi aktif.
+ */
 function calculateChasePath(showMessage = true, source = "player") {
   const algorithm = algorithmSelect.value;
   const heuristic = algorithm === "ucs" ? zeroHeuristic : getSelectedHeuristic();
 
+  // Panggil modul pathfinding.js
   const result = searchPath(grid, npcCell, playerCell, { algorithm, heuristic });
   currentResult = result;
 
@@ -473,10 +555,14 @@ function calculateChasePath(showMessage = true, source = "player") {
   return result;
 }
 
+/**
+ * Mengerakkan NPC satu langkah maju mengikuti jalur hasil kalkulasi pathfinding.
+ */
 function moveNpcOneStep() {
   if (!isChasing || isGameOver) return;
   if (!currentResult || !currentResult.found) return;
 
+  // Jika sudah berada pada petak yang sama dengan Player
   if (sameCell(npcCell, playerCell)) {
     showGameOverModal();
     return;
@@ -486,9 +572,11 @@ function moveNpcOneStep() {
   const npcIndex = path.findIndex(cell => sameCell(cell, npcCell));
   if (npcIndex < 0 || npcIndex + 1 >= path.length) return;
 
+  // NPC berpindah ke node berikutnya di sepanjang path
   npcCell = { ...path[npcIndex + 1] };
   calculateChasePath(false, "npc");
 
+  // Pengecekan tabrakan/tertangkap setelah bergerak
   if (sameCell(npcCell, playerCell)) {
     message.className = "message status-error";
     message.textContent = "Tertangkap! NPC berhasil menangkap Player.";
@@ -496,10 +584,14 @@ function moveNpcOneStep() {
   }
 }
 
+/**
+ * Memindahkan Player berdasarkan input tombol key.
+ */
 function movePlayer(dx, dy) {
   if (isGameOver || sameCell(npcCell, playerCell)) return;
 
   const next = { x: playerCell.x + dx, y: playerCell.y + dy };
+  // Batasi gerakan jika menabrak tembok/pohon
   if (!grid.isPassable(next)) {
     message.className = "message status-error";
     return;
@@ -509,6 +601,7 @@ function movePlayer(dx, dy) {
   playerCell = next;
   calculateChasePath(false, "player");
 
+  // NPC merespons pergerakan player dengan melangkah mengejar
   if (isChasing) {
     moveNpcOneStep();
     if (!sameCell(npcCell, playerCell)) {
@@ -518,6 +611,9 @@ function movePlayer(dx, dy) {
   draw();
 }
 
+/**
+ * Mengembalikan state game dan posisi entity ke posisi awal.
+ */
 function resetGame() {
   hideGameOverModal();
   isChasing = true;
@@ -540,10 +636,16 @@ function resetGame() {
   calculateChasePath(false, "player");
 }
 
+/**
+ * Memeriksa apakah suatu sel memiliki minimal 1 tetangga yang passable.
+ */
 function hasPassableNeighbor(cell) {
   return grid.getNeighbors(cell).length > 0;
 }
 
+/**
+ * Membuat peta acak baru (Random Map Generator) dengan syarat ada jalur yang valid antara NPC dan Player.
+ */
 function randomizeMap() {
   hideGameOverModal();
 
@@ -554,15 +656,16 @@ function randomizeMap() {
       let row = "";
       for (let x = 0; x < COLS; x++) {
         const rand = Math.random();
-        if (rand < 0.20) row += "#";
-        else if (rand < 0.35) row += "R";
-        else row += ".";
+        if (rand < 0.20) row += "#";      // 20% Peluang Tembok/Pohon
+        else if (rand < 0.35) row += "R"; // 15% Peluang Sungai/Air
+        else row += ".";                  // 65% Rumput Biasa
       }
       MAP.push(row);
     }
 
     tileVariantMap = generateTileVariants();
 
+    // Fungsi helper penempatan acak koordinat awal NPC dan Player
     function getRandomEmptyCell(mustBeMovable = false) {
       let cell;
       let attempts = 0;
@@ -587,6 +690,7 @@ function randomizeMap() {
       initialPlayer = getRandomEmptyCell(true);
     } while (sameCell(initialNpc, initialPlayer) && attempts < 100);
 
+    // Validasi apakah map solvable (ada jalur dari NPC ke Player)
     const testResult = searchPath(grid, initialNpc, initialPlayer, { algorithm: "ucs" });
     if (testResult.found && testResult.path.length > 1) {
       mapValid = true;
@@ -596,6 +700,9 @@ function randomizeMap() {
   resetGame();
 }
 
+/**
+ * Keyboard Event Listener (W, A, S, D & Arrow Keys)
+ */
 function handleKeydown(event) {
   const keyName = event.key.toLowerCase();
   const moves = {
@@ -609,6 +716,7 @@ function handleKeydown(event) {
   movePlayer(moves[keyName].x, moves[keyName].y);
 }
 
+// Event Listeners Kontrol UI
 algorithmSelect.addEventListener("change", () => {
   heuristicSelect.disabled = algorithmSelect.value === "ucs";
   calculateChasePath(true, "player");
@@ -622,5 +730,6 @@ randomBtn.addEventListener("click", randomizeMap);
 restartBtn.addEventListener("click", randomizeMap);
 window.addEventListener("keydown", handleKeydown);
 
+// Startup/Inisialisasi aplikasi pertama kali
 heuristicSelect.disabled = false;
 randomizeMap();
